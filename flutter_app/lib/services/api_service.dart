@@ -804,7 +804,7 @@ class ApiService {
   static String get _baseUrl {
     const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return envUrl;
-    return 'https://broke-composed-academy-rug.trycloudflare.com/api';
+    return 'https://patient-backend-seven.vercel.app/api';
   }
 
   static final ApiService _instance = ApiService._internal();

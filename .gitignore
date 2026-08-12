@@ -20,3 +20,4 @@ backend/dist/
 backend/.env
 *.env
 flutter_app/build/
+.vercel
