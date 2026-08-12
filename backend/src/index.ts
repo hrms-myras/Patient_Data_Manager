@@ -244,6 +244,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import multer from 'multer';
+import cors from 'cors';
 import { initializeEncryption } from './utils/encryption';
 import { initializeScheduledJobs } from './services/scheduledJobsService';
 import { retryFailedBackups } from './services/emailService';
@@ -267,47 +268,52 @@ const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 const upload = multer(); // Initialize multer for file uploads
 
-// Middleware
+// ============================================================
+// ✅ MIDDLEWARE ✅
+// ============================================================
+
+// Helmet for security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+
+// Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================
-// ✅ UPDATED CORS MIDDLEWARE - VERCEL FRIENDLY ✅
+// ✅ CORS MIDDLEWARE - COMPLETE FIX ✅
 // ============================================================
 app.use((req: Request, res: Response, next: NextFunction) => {
-  // Allow all origins (for development)
+  // Allow specific origins
   const allowedOrigins = [
     'https://patient-manager-three.vercel.app',
-    'https://patient-manager-kip5488mz-hrms-7192s-projects.vercel.app',
     'https://patient-manager.vercel.app',
+    'https://patient-manager-70wtwyqbi-hrms-7192s-projects.vercel.app',
+    'https://patient-manager-kip5488mz-hrms-7192s-projects.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5000',
-    '*'
+    'http://localhost:8080'
   ];
   
   const origin = req.headers.origin || '';
   
-  // Allow all origins in development
-  if (process.env.NODE_ENV === 'development' || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
+  // Check if origin is allowed, or allow all in development
+  if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    res.header('Access-Control-Allow-Origin', origin);
   } else {
-    // Production: only allow specific origins
-    if (allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      res.header('Access-Control-Allow-Origin', 'https://patient-manager-three.vercel.app');
-    }
+    // Allow all origins as fallback (for testing)
+    res.header('Access-Control-Allow-Origin', '*');
   }
   
+  // Set CORS headers
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-secret');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Expose-Headers', 'Content-Length, X-Requested-With');
   
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -315,7 +321,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// Initialize encryption service
+// ============================================================
+// ✅ ENCRYPTION INITIALIZATION ✅
+// ============================================================
+
 try {
   const encryptionKey = process.env.ENCRYPTION_KEY;
   if (!encryptionKey) {
@@ -328,7 +337,10 @@ try {
   process.exit(1);
 }
 
-// Routes
+// ============================================================
+// ✅ ROUTES ✅
+// ============================================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/users', userRoutes);
@@ -338,7 +350,10 @@ app.use('/api/audit', auditRoutes);
 // Initialize scheduled jobs
 initializeScheduledJobs();
 
-// Health check
+// ============================================================
+// ✅ HEALTH CHECK ✅
+// ============================================================
+
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -346,7 +361,10 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Admin retry endpoint for failed backup emails
+// ============================================================
+// ✅ ADMIN RETRY BACKUP ENDPOINT ✅
+// ============================================================
+
 app.get('/api/admin/retry-backup', async (req: Request, res: Response) => {
   const secret = String(req.query.secret || '');
   if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
@@ -453,12 +471,18 @@ app.post('/api/backup/test', async (req: Request, res: Response) => {
 
 console.log('📧 Backup routes initialized');
 
-// 404 handler
+// ============================================================
+// ✅ 404 HANDLER ✅
+// ============================================================
+
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Error handler
+// ============================================================
+// ✅ ERROR HANDLER ✅
+// ============================================================
+
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).json({
@@ -467,7 +491,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Start server
+// ============================================================
+// ✅ START SERVER ✅
+// ============================================================
+
 const server = app.listen(PORT, () => {
   console.log(`\n🚀 IVF Backend Server`);
   console.log(`📍 Running on http://localhost:${PORT}`);
@@ -488,7 +515,10 @@ async function retryFailedBackupsOnStartup() {
   }
 }
 
-// Graceful shutdown
+// ============================================================
+// ✅ GRACEFUL SHUTDOWN ✅
+// ============================================================
+
 process.on('SIGINT', async () => {
   console.log('\n\n🛑 Shutting down gracefully...');
   server.close(async () => {
