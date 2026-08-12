@@ -266,59 +266,47 @@ console.log(`📡 Loaded configuration from: .env.${environment}`);
 const app: Express = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
-const upload = multer(); // Initialize multer for file uploads
+const upload = multer();
 
 // ============================================================
 // ✅ MIDDLEWARE ✅
 // ============================================================
 
-// Helmet for security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================
-// ✅ CORS MIDDLEWARE - COMPLETE FIX ✅
+// ✅ CORS - PAKKA FIX (Using cors package) ✅
 // ============================================================
+
+// CORS options
+const corsOptions = {
+  origin: '*', // Allow all origins (for Vercel)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-secret', 'Origin', 'X-Requested-With'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Extra manual CORS headers (double protection)
 app.use((req: Request, res: Response, next: NextFunction) => {
-  // Allow specific origins
-  const allowedOrigins = [
-    'https://patient-manager-three.vercel.app',
-    'https://patient-manager.vercel.app',
-    'https://patient-manager-70wtwyqbi-hrms-7192s-projects.vercel.app',
-    'https://patient-manager-kip5488mz-hrms-7192s-projects.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5000',
-    'http://localhost:8080'
-  ];
-  
-  const origin = req.headers.origin || '';
-  
-  // Check if origin is allowed, or allow all in development
-  if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    // Allow all origins as fallback (for testing)
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  // Set CORS headers
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-secret');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Expose-Headers', 'Content-Length, X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
+    return res.sendStatus(200);
   }
+  next();
 });
 
 // ============================================================
@@ -347,7 +335,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/panic-wipe', panicWipeRoutes);
 app.use('/api/audit', auditRoutes);
 
-// Initialize scheduled jobs
 initializeScheduledJobs();
 
 // ============================================================
@@ -390,34 +377,26 @@ app.get('/api/admin/retry-backup', async (req: Request, res: Response) => {
 
 app.post('/api/backup/send-email', upload.single('file'), async (req: Request, res: Response) => {
   try {
-    // Authorization check
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
     const { recipientEmail, customMessage } = req.body;
-    const file = req.file; 
+    const file = req.file;
 
     if (!file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    // Import email service & encryption
     const emailService = await import('./services/emailService');
     const { getEncryption } = await import('./utils/encryption');
 
-    // 1. Convert file buffer to string (CSV data)
     const csvString = file.buffer.toString('utf-8');
-
-    // 2. Encrypt the CSV data
     const encryption = getEncryption();
     const encryptedBackup = encryption.encrypt(csvString);
-
-    // 3. Prepare file name
     const fileName = file.originalname.replace('.csv', '.enc');
 
-    // 4. Send the email using emailService's function
     const emailSent = await emailService.sendBackupEmailTo(
       recipientEmail,
       Buffer.from(encryptedBackup, 'utf-8'),
