@@ -29,7 +29,8 @@ async function main() {
         return;
       }
 
-      const tempPassword = generateRandomPassword(8);
+      //const tempPassword = generateRandomPassword(8);
+      const tempPassword = "owner123";
       const passwordHash = await bcryptjs.hash(tempPassword, 10);
 
       const created = await prisma.user.create({

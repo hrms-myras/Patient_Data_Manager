@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="b9c3ad0e-9543-41ab-8175-24409a17efda" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/backend/.env.development" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env.development" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/prisma/seed.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/prisma/seed.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/routes/userRoutes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/routes/userRoutes.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/android/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/android/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/android/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/models/patient.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/models/patient.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/models/user.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/models/user.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/providers/auth_provider.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/providers/auth_provider.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/providers/patient_provider.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/providers/patient_provider.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/activity_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/activity_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/add_patient_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/add_patient_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/change_password_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/change_password_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/login_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/patient_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/patient_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/patient_list_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/patient_list_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/screens/staff_management_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/screens/staff_management_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/services/api_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/services/api_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/services/secure_store_stub.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/pubspec.lock" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3GaA6Yho5dPz4VYEInNX4kiZdMM" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/DELL/Patient_Data_Manager",
+    "settings.editor.selected.configurable": "AndroidSdkUpdater"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="b9c3ad0e-9543-41ab-8175-24409a17efda" name="Changes" comment="" />
+      <created>1784199133607</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1784199133607</updated>
+    </task>
+    <servers />
+  </component>
+</project>

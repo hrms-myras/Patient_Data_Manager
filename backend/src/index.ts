@@ -1,8 +1,8 @@
-// src/index.ts
 import express, { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import path from 'path'; // Imported to handle file routing cleanly
+import path from 'path';
+import multer from 'multer';
 import { initializeEncryption } from './utils/encryption';
 import { initializeScheduledJobs } from './services/scheduledJobsService';
 import { retryFailedBackups } from './services/emailService';
@@ -13,10 +13,8 @@ import auditRoutes from './routes/auditRoutes';
 import userRoutes from './routes/userRoutes';
 import { PrismaClient } from '@prisma/client';
 
-// Determine which environment we are running in (defaults to 'development')
 const environment = process.env.NODE_ENV || 'development';
 
-// Dynamically load the specific .env file from the root folder
 dotenv.config({
   path: path.resolve(process.cwd(), `.env.${environment}`)
 });
@@ -26,16 +24,17 @@ console.log(`📡 Loaded configuration from: .env.${environment}`);
 const app: Express = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+const upload = multer(); // Initialize multer for file uploads
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS middleware (expand as needed for frontend URLs)
+// CORS middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-secret');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   
   if (req.method === 'OPTIONS') {
@@ -95,6 +94,93 @@ app.get('/api/admin/retry-backup', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Retry failed', message: (error as Error).message });
   }
 });
+
+// ============================================================
+// ⭐ FINAL BACKUP EMAIL ROUTE (ERROR FREE) ⭐
+// ============================================================
+
+app.post('/api/backup/send-email', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    // Authorization check
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const { recipientEmail, customMessage } = req.body;
+    const file = req.file; 
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Import email service & encryption
+    const emailService = await import('./services/emailService');
+    const { getEncryption } = await import('./utils/encryption');
+
+    // 1. Convert file buffer to string (CSV data)
+    const csvString = file.buffer.toString('utf-8');
+
+    // 2. Encrypt the CSV data
+    const encryption = getEncryption();
+    const encryptedBackup = encryption.encrypt(csvString);
+
+    // 3. Prepare file name
+    const fileName = file.originalname.replace('.csv', '.enc');
+
+    // 4. Send the email using emailService's function
+    const emailSent = await emailService.sendBackupEmailTo(
+      recipientEmail,
+      Buffer.from(encryptedBackup, 'utf-8'),
+      fileName,
+      customMessage || '📁 Patient Data Backup'
+    );
+
+    if (emailSent) {
+      res.status(200).json({ success: true, message: 'Email sent successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to send email' });
+    }
+
+  } catch (error: any) {
+    console.error('❌ Send Email Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ============================================================
+// ⭐ TEST BACKUP ROUTE ⭐
+// ============================================================
+
+app.post('/api/backup/test', async (req: Request, res: Response) => {
+  try {
+    const adminSecret = req.headers['x-admin-secret'];
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const emailService = await import('./services/emailService');
+    
+    console.log('🧪 Test backup triggered...');
+    const result = await emailService.sendWeeklyBackupEmail();
+    
+    if (result) {
+      res.json({ 
+        success: true, 
+        message: '✅ Test backup email sent successfully! Check your email.' 
+      });
+    } else {
+      res.status(500).json({ 
+        error: '❌ Test backup failed. Check server logs.' 
+      });
+    }
+  } catch (error: any) {
+    console.error('Test backup error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+console.log('📧 Backup routes initialized');
 
 // 404 handler
 app.use((req: Request, res: Response) => {

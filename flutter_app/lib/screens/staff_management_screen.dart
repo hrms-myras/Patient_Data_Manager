@@ -1,3 +1,634 @@
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:provider/provider.dart';
+// import '../services/api_service.dart';
+// import '../providers/auth_provider.dart';
+
+// class StaffManagementScreen extends StatefulWidget {
+//   const StaffManagementScreen({Key? key}) : super(key: key);
+
+//   @override
+//   State<StaffManagementScreen> createState() => _StaffManagementScreenState();
+// }
+
+// class _StaffManagementScreenState extends State<StaffManagementScreen> {
+//   final _usernameController = TextEditingController();
+//   final _backupEmailController = TextEditingController();
+//   final _verificationCodeController = TextEditingController();
+//   String _role = 'ACCOUNTANT';
+//   bool _isLoading = false;
+//   String? _error;
+//   List<Map<String, dynamic>> _users = [];
+//   Map<String, dynamic>? _lastCreatedUser;
+//   String? _lastTempPassword;
+
+//   // Backup emails state
+//   List<Map<String, dynamic>> _backupEmails = [];
+//   String? _pendingVerificationEmail; // email that is currently being verified
+//   String? _deliveryHintCode;
+
+//   ApiService get _apiService => ApiService();
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _loadUsers();
+//     _loadBackupEmails();
+//   }
+
+//   @override
+//   void dispose() {
+//     _usernameController.dispose();
+//     _backupEmailController.dispose();
+//     _verificationCodeController.dispose();
+//     super.dispose();
+//   }
+
+//   Future<void> _loadUsers() async {
+//     setState(() => _isLoading = true);
+//     try {
+//       final users = await _apiService.getUsers();
+//       setState(() => _users = users);
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   Future<void> _loadBackupEmails() async {
+//     try {
+//       final list = await _apiService.getBackupEmails();
+//       setState(() => _backupEmails = list);
+//     } catch (e) {
+//       // Silently fail; user can retry by pulling again
+//     }
+//   }
+
+//   // ─── User management (unchanged) ────────────────────────────────
+
+//   Future<void> _createUser() async {
+//     final username = _usernameController.text.trim();
+//     final email = '$username@example.com';
+//     final role = _role;
+
+//     if (username.isEmpty) {
+//       setState(() => _error = 'Username is required.');
+//       return;
+//     }
+
+//     setState(() {
+//       _isLoading = true;
+//       _error = null;
+//       _lastCreatedUser = null;
+//       _lastTempPassword = null;
+//     });
+
+//     try {
+//       final result = await _apiService.createUser(username, email, role);
+//       final tempPassword = result['tempPassword'] ?? 'N/A';
+//       setState(() {
+//         _lastCreatedUser = result['data'];
+//         _lastTempPassword = tempPassword;
+//       });
+//       _usernameController.clear();
+//       _role = 'ACCOUNTANT';
+//       await _loadUsers();
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   Future<void> _resetPassword(String userId) async {
+//     setState(() {
+//       _isLoading = true;
+//       _error = null;
+//       _lastCreatedUser = null;
+//       _lastTempPassword = null;
+//     });
+//     try {
+//       final result = await _apiService.resetUserPassword(userId);
+//       final tempPassword = result['tempPassword'] ?? 'N/A';
+//       setState(() {
+//         _lastCreatedUser = result['data'];
+//         _lastTempPassword = tempPassword;
+//       });
+//       await _loadUsers();
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   Future<void> _deleteUser(String userId, String username, String role) async {
+//     final confirmed = await showDialog<bool>(
+//       context: context,
+//       builder: (ctx) => AlertDialog(
+//         title: const Text('Delete User'),
+//         content: Text('Are you sure you want to delete $username ($role)?\n\nThis action cannot be undone.'),
+//         actions: [
+//           TextButton(
+//             onPressed: () => Navigator.pop(ctx, false),
+//             child: const Text('Cancel'),
+//           ),
+//           TextButton(
+//             onPressed: () => Navigator.pop(ctx, true),
+//             style: TextButton.styleFrom(foregroundColor: Colors.red),
+//             child: const Text('Delete'),
+//           ),
+//         ],
+//       ),
+//     );
+//     if (confirmed != true) return;
+//     setState(() {
+//       _isLoading = true;
+//       _error = null;
+//     });
+//     try {
+//       await _apiService.deleteUser(userId);
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(content: Text('$username deleted successfully')),
+//       );
+//       await _loadUsers();
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   void _copyToClipboard(String text, String label) {
+//     Clipboard.setData(ClipboardData(text: text));
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text('$label copied to clipboard'),
+//         duration: const Duration(seconds: 2),
+//       ),
+//     );
+//   }
+
+//   // ─── Backup email methods ──────────────────────────────────────
+
+//   Future<void> _sendBackupEmailVerification() async {
+//     final email = _backupEmailController.text.trim();
+//     if (email.isEmpty) {
+//       setState(() => _error = 'Email is required');
+//       return;
+//     }
+//     final emailRegex = RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}");
+//     if (!emailRegex.hasMatch(email)) {
+//       setState(() => _error = 'Invalid email format');
+//       return;
+//     }
+
+//     setState(() {
+//       _isLoading = true;
+//       _error = null;
+//       _deliveryHintCode = null;
+//     });
+
+//     try {
+//       final result = await _apiService.sendBackupEmailVerification(email);
+//       final bool emailSent = result['emailSent'] == true;
+//       setState(() {
+//         _pendingVerificationEmail = email;
+//         _backupEmailController.clear();
+//         if (!emailSent) {
+//           _deliveryHintCode = result['verificationCode'] as String?;
+//         }
+//       });
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(content: Text(emailSent ? 'Verification code sent' : 'Could not send email. Code shown below.')),
+//       );
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   Future<void> _verifyBackupEmailCode() async {
+//     final code = _verificationCodeController.text.trim();
+//     if (code.isEmpty || code.length != 6) {
+//       setState(() => _error = 'Enter the 6-digit verification code');
+//       return;
+//     }
+
+//     if (_pendingVerificationEmail == null) {
+//       setState(() => _error = 'No email is pending verification.');
+//       return;
+//     }
+
+//     setState(() {
+//       _isLoading = true;
+//       _error = null;
+//     });
+
+//     try {
+//       final result = await _apiService.verifyBackupEmail(_pendingVerificationEmail!, code);
+//       setState(() {
+//         _pendingVerificationEmail = null;
+//         _verificationCodeController.clear();
+//         _deliveryHintCode = null;
+//       });
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text('Backup email verified: ${result['data']['email']}'),
+//           backgroundColor: Colors.green,
+//         ),
+//       );
+//       await _loadBackupEmails();
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   Future<void> _deleteBackupEmail(String id, String email) async {
+//     final confirmed = await showDialog<bool>(
+//       context: context,
+//       builder: (ctx) => AlertDialog(
+//         title: const Text('Remove Backup Email'),
+//         content: Text('Are you sure you want to remove $email?'),
+//         actions: [
+//           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+//           TextButton(
+//             onPressed: () => Navigator.pop(ctx, true),
+//             style: TextButton.styleFrom(foregroundColor: Colors.red),
+//             child: const Text('Remove'),
+//           ),
+//         ],
+//       ),
+//     );
+//     if (confirmed != true) return;
+//     setState(() => _isLoading = true);
+//     try {
+//       await _apiService.deleteBackupEmail(id);
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(content: Text('$email removed')),
+//       );
+//       await _loadBackupEmails();
+//     } catch (e) {
+//       setState(() => _error = e.toString());
+//     } finally {
+//       setState(() => _isLoading = false);
+//     }
+//   }
+
+//   // ─── Build ─────────────────────────────────────────────────────
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+//     final isOwner = authProvider.user?.isOwner == true;
+
+//     if (!isOwner) {
+//       return Scaffold(
+//         appBar: AppBar(title: const Text('Staff Management'), backgroundColor: const Color(0xFF00695C)),
+//         body: const Center(child: Text('Access denied')),
+//       );
+//     }
+
+//     return Scaffold(
+//       appBar: AppBar(title: const Text('Staff Management'), backgroundColor: const Color(0xFF00695C)),
+//       body: SafeArea(
+//         child: SingleChildScrollView(
+//           padding: const EdgeInsets.all(16),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.stretch,
+//             children: [
+//               if (_error != null)
+//                 Container(
+//                   padding: const EdgeInsets.all(12),
+//                   margin: const EdgeInsets.only(bottom: 12),
+//                   decoration: BoxDecoration(
+//                     color: Colors.red[100],
+//                     borderRadius: BorderRadius.circular(8),
+//                     border: Border.all(color: Colors.red[300]!),
+//                   ),
+//                   child: Text(_error!, style: const TextStyle(color: Colors.red)),
+//                 ),
+//               if (_lastCreatedUser != null && _lastTempPassword != null)
+//                 _buildTempPasswordCard(),
+//               // ── Staff creation section ─────────────────────────
+//               const Text('Create staff account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+//               const SizedBox(height: 16),
+//               TextField(
+//                 controller: _usernameController,
+//                 decoration: InputDecoration(
+//                   labelText: 'Username',
+//                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//                   filled: true,
+//                   fillColor: Colors.white,
+//                 ),
+//               ),
+//               const SizedBox(height: 12),
+//               DropdownButtonFormField<String>(
+//                 value: _role,
+//                 decoration: InputDecoration(
+//                   labelText: 'Role',
+//                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//                   filled: true,
+//                   fillColor: Colors.white,
+//                 ),
+//                 items: const [
+//                   DropdownMenuItem(value: 'OWNER', child: Text('Owner')),
+//                   DropdownMenuItem(value: 'ACCOUNTANT', child: Text('Accountant')),
+//                   DropdownMenuItem(value: 'SECRETARY', child: Text('Secretary')),
+//                 ],
+//                 onChanged: (value) => setState(() => _role = value!),
+//               ),
+//               const SizedBox(height: 16),
+//               ElevatedButton(
+//                 onPressed: _isLoading ? null : _createUser,
+//                 style: ElevatedButton.styleFrom(
+//                   backgroundColor: const Color(0xFF00695C),
+//                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+//                 ),
+//                 child: _isLoading
+//                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+//                     : const Text('Create account'),
+//               ),
+//               const SizedBox(height: 32),
+//               const Divider(),
+//               // ── Backup email management section ────────────────
+//               _buildBackupEmailSection(),
+//               const SizedBox(height: 32),
+//               const Divider(),
+//               // ── Existing staff list ────────────────────────────
+//               _buildExistingStaffList(authProvider),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildTempPasswordCard() {
+//     return Container(
+//       padding: const EdgeInsets.all(14),
+//       margin: const EdgeInsets.only(bottom: 16),
+//       decoration: BoxDecoration(
+//         color: Colors.blue[50],
+//         borderRadius: BorderRadius.circular(8),
+//         border: Border.all(color: Colors.blue[300]!, width: 1.5),
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text('User: ${_lastCreatedUser!['username']}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+//           const SizedBox(height: 8),
+//           Container(
+//             padding: const EdgeInsets.all(10),
+//             decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
+//             child: Row(
+//               children: [
+//                 Expanded(child: Text(_lastTempPassword!, style: const TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w600))),
+//                 IconButton(
+//                   icon: const Icon(Icons.copy, size: 18),
+//                   onPressed: () => _copyToClipboard(_lastTempPassword!, 'Password'),
+//                   constraints: const BoxConstraints(),
+//                   padding: const EdgeInsets.symmetric(horizontal: 4),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           const SizedBox(height: 10),
+//           const Text('⚠️  Share this password securely. User must change it on first login.', style: TextStyle(fontSize: 12, color: Colors.red)),
+//           const SizedBox(height: 12),
+//           SizedBox(
+//             width: double.infinity,
+//             child: ElevatedButton(
+//               style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600]),
+//               onPressed: () => setState(() { _lastCreatedUser = null; _lastTempPassword = null; }),
+//               child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildBackupEmailSection() {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         const Text('Backup Emails', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+//         const SizedBox(height: 12),
+//         const Text('Add verified email addresses to receive panic wipe backups.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+//         const SizedBox(height: 16),
+//         // List existing backup emails
+//         if (_backupEmails.isNotEmpty) ...[
+//           ListView.separated(
+//             shrinkWrap: true,
+//             physics: const NeverScrollableScrollPhysics(),
+//             itemCount: _backupEmails.length,
+//             separatorBuilder: (_, __) => const SizedBox(height: 8),
+//             itemBuilder: (context, index) {
+//               final item = _backupEmails[index];
+//               final email = item['email'] as String;
+//               final verified = item['verified'] as bool;
+//               final id = item['id'] as String;
+//               return Card(
+//                 elevation: 1,
+//                 child: Padding(
+//                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//                   child: Row(
+//                     children: [
+//                       Icon(verified ? Icons.verified : Icons.warning_amber, color: verified ? Colors.green : Colors.orange, size: 20),
+//                       const SizedBox(width: 8),
+//                       Expanded(child: Text(email, style: const TextStyle(fontSize: 14))),
+//                       IconButton(
+//                         icon: const Icon(Icons.delete, size: 20),
+//                         color: Colors.red,
+//                         onPressed: _isLoading ? null : () => _deleteBackupEmail(id, email),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//           const SizedBox(height: 16),
+//         ],
+//         // Add new backup email
+//         if (_pendingVerificationEmail == null) ...[
+//           TextField(
+//             controller: _backupEmailController,
+//             keyboardType: TextInputType.emailAddress,
+//             autofillHints: const [AutofillHints.email],
+//             decoration: InputDecoration(
+//               labelText: 'New backup email',
+//               hintText: 'backup@example.com',
+//               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//               filled: true,
+//               fillColor: Colors.white,
+//             ),
+//           ),
+//           const SizedBox(height: 12),
+//           ElevatedButton(
+//             onPressed: _isLoading ? null : _sendBackupEmailVerification,
+//             style: ElevatedButton.styleFrom(
+//               backgroundColor: Colors.blue[600],
+//               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+//             ),
+//             child: const Text('Send Verification Code'),
+//           ),
+//         ] else ...[
+//           // Verification code input
+//           Container(
+//             padding: const EdgeInsets.all(12),
+//             margin: const EdgeInsets.only(bottom: 12),
+//             decoration: BoxDecoration(
+//               color: Colors.blue[50],
+//               borderRadius: BorderRadius.circular(8),
+//               border: Border.all(color: Colors.blue[300]!),
+//             ),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text('Verification code sent to $_pendingVerificationEmail', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue)),
+//                 const SizedBox(height: 8),
+//                 const Text('Check your email for a 6-digit code.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+//                 if (_deliveryHintCode != null) ...[
+//                   const SizedBox(height: 8),
+//                   Text('Email delivery failed. Your code is: $_deliveryHintCode', style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
+//                 ],
+//               ],
+//             ),
+//           ),
+//           TextField(
+//             controller: _verificationCodeController,
+//             maxLength: 6,
+//             keyboardType: TextInputType.number,
+//             textAlign: TextAlign.center,
+//             style: const TextStyle(fontSize: 20, letterSpacing: 8, fontWeight: FontWeight.bold),
+//             decoration: InputDecoration(
+//               labelText: 'Verification code',
+//               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//               filled: true,
+//               fillColor: Colors.white,
+//               counterText: '',
+//             ),
+//           ),
+//           const SizedBox(height: 12),
+//           Row(
+//             children: [
+//               Expanded(
+//                 child: ElevatedButton(
+//                   onPressed: _isLoading ? null : _verifyBackupEmailCode,
+//                   style: ElevatedButton.styleFrom(
+//                     backgroundColor: Colors.green[600],
+//                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+//                   ),
+//                   child: const Text('Verify & Add'),
+//                 ),
+//               ),
+//               const SizedBox(width: 8),
+//               Expanded(
+//                 child: OutlinedButton(
+//                   onPressed: _isLoading
+//                       ? null
+//                       : () => setState(() {
+//                             _pendingVerificationEmail = null;
+//                             _verificationCodeController.clear();
+//                             _deliveryHintCode = null;
+//                             _error = null;
+//                           }),
+//                   style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+//                   child: const Text('Cancel'),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ],
+//     );
+//   }
+
+//   Widget _buildExistingStaffList(AuthProvider authProvider) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         const Text('Existing staff', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+//         const SizedBox(height: 12),
+//         if (_isLoading && _users.isEmpty)
+//           const Center(child: CircularProgressIndicator())
+//         else if (_users.isEmpty)
+//           const Center(child: Text('No staff accounts found.'))
+//         else
+//           ListView.separated(
+//             shrinkWrap: true,
+//             physics: const NeverScrollableScrollPhysics(),
+//             itemCount: _users.length,
+//             separatorBuilder: (_, __) => const SizedBox(height: 8),
+//             itemBuilder: (context, index) {
+//               final user = _users[index];
+//               final isCurrentUser = user['id'] == authProvider.user?.id;
+//               final isOwner = user['role'] == 'OWNER';
+//               return Card(
+//                 elevation: 1,
+//                 child: Padding(
+//                   padding: const EdgeInsets.all(12),
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       Row(
+//                         children: [
+//                           Expanded(
+//                             child: Column(
+//                               crossAxisAlignment: CrossAxisAlignment.start,
+//                               children: [
+//                                 Text(user['username'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+//                                 const SizedBox(height: 4),
+//                                 Text('${user['email'] ?? ''} • ${user['role'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+//                                 if (isCurrentUser)
+//                                   const Padding(
+//                                     padding: EdgeInsets.only(top: 4),
+//                                     child: Text('(Your account)', style: TextStyle(fontSize: 11, color: Colors.blue, fontStyle: FontStyle.italic)),
+//                                   ),
+//                               ],
+//                             ),
+//                           ),
+//                         ],
+//                       ),
+//                       const SizedBox(height: 12),
+//                       Row(
+//                         mainAxisAlignment: MainAxisAlignment.end,
+//                         children: [
+//                           TextButton.icon(
+//                             onPressed: _isLoading ? null : () => _resetPassword(user['id'] as String),
+//                             icon: const Icon(Icons.refresh, size: 18),
+//                             label: const Text('Reset password'),
+//                             style: TextButton.styleFrom(foregroundColor: Colors.orange),
+//                           ),
+//                           const SizedBox(width: 8),
+//                           if (!isCurrentUser && !isOwner)
+//                             TextButton.icon(
+//                               onPressed: _isLoading
+//                                   ? null
+//                                   : () => _deleteUser(user['id'] as String, user['username'] as String, user['role'] as String),
+//                               icon: const Icon(Icons.delete, size: 18),
+//                               label: const Text('Delete'),
+//                               style: TextButton.styleFrom(foregroundColor: Colors.red),
+//                             ),
+//                         ],
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               );
+//             },
+//           ),
+//       ],
+//     );
+//   }
+// }
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -22,9 +653,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   Map<String, dynamic>? _lastCreatedUser;
   String? _lastTempPassword;
 
-  // Backup emails state
   List<Map<String, dynamic>> _backupEmails = [];
-  String? _pendingVerificationEmail; // email that is currently being verified
+  String? _pendingVerificationEmail;
   String? _deliveryHintCode;
 
   ApiService get _apiService => ApiService();
@@ -61,11 +691,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       final list = await _apiService.getBackupEmails();
       setState(() => _backupEmails = list);
     } catch (e) {
-      // Silently fail; user can retry by pulling again
+      // Silently fail
     }
   }
-
-  // ─── User management (unchanged) ────────────────────────────────
 
   Future<void> _createUser() async {
     final username = _usernameController.text.trim();
@@ -169,8 +797,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
       ),
     );
   }
-
-  // ─── Backup email methods ──────────────────────────────────────
 
   Future<void> _sendBackupEmailVerification() async {
     final email = _backupEmailController.text.trim();
@@ -279,8 +905,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     }
   }
 
-  // ─── Build ─────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -288,13 +912,39 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
     if (!isOwner) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Staff Management'), backgroundColor: const Color(0xFF00695C)),
-        body: const Center(child: Text('Access denied')),
+        appBar: AppBar(
+          backgroundColor: Colors.red,
+          title: const Text('Access Denied'),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock, size: 80, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Access Denied',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Only Owners can access Staff Management',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'You do not have permission',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Staff Management'), backgroundColor: const Color(0xFF00695C)),
+      appBar: AppBar(title: const Text('Staff Management'), backgroundColor: const Color(0xFF7C3AED)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -314,7 +964,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                 ),
               if (_lastCreatedUser != null && _lastTempPassword != null)
                 _buildTempPasswordCard(),
-              // ── Staff creation section ─────────────────────────
               const Text('Create staff account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
@@ -346,7 +995,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _createUser,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00695C),
+                  backgroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: _isLoading
@@ -355,11 +1005,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               ),
               const SizedBox(height: 32),
               const Divider(),
-              // ── Backup email management section ────────────────
               _buildBackupEmailSection(),
               const SizedBox(height: 32),
               const Divider(),
-              // ── Existing staff list ────────────────────────────
               _buildExistingStaffList(authProvider),
             ],
           ),
@@ -403,7 +1051,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600]),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600], foregroundColor: Colors.white),
               onPressed: () => setState(() { _lastCreatedUser = null; _lastTempPassword = null; }),
               child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
             ),
@@ -421,7 +1069,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         const SizedBox(height: 12),
         const Text('Add verified email addresses to receive panic wipe backups.', style: TextStyle(fontSize: 13, color: Colors.grey)),
         const SizedBox(height: 16),
-        // List existing backup emails
         if (_backupEmails.isNotEmpty) ...[
           ListView.separated(
             shrinkWrap: true,
@@ -455,7 +1102,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        // Add new backup email
         if (_pendingVerificationEmail == null) ...[
           TextField(
             controller: _backupEmailController,
@@ -474,12 +1120,12 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
             onPressed: _isLoading ? null : _sendBackupEmailVerification,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue[600],
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text('Send Verification Code'),
           ),
         ] else ...[
-          // Verification code input
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 12),
@@ -523,6 +1169,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   onPressed: _isLoading ? null : _verifyBackupEmailCode,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: const Text('Verify & Add'),
