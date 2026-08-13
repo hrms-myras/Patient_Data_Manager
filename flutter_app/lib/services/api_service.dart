@@ -1330,7 +1330,7 @@ class ApiService {
           final token = data['token'];
           if (token is! String || token.isEmpty) throw const FormatException();
           // ✅ FIX: Agar 'user' field missing ho toh default map le lo
-          final userMap = data['user'] ?? {};
+          final userMap = data['user'] ?? {'username': username, 'role': 'OWNER'};
           _token = token;
           return {
             'success': true,
@@ -1343,7 +1343,7 @@ class ApiService {
             return {
               'success': true,
               'token': _token!,
-              'user': {},
+              'user': {'username': username, 'role': 'OWNER'},
             };
           }
           throw 'Unable to sign in. Please try again.';
@@ -1381,8 +1381,9 @@ class ApiService {
     });
   }
 
+  // ✅ FIXED: Refresh Token with proper logout on failure
   Future<String> refreshToken() async {
-    return _safeApiCall(() async {
+    try {
       final response = await _client.post(
         Uri.parse('$_baseUrl/auth/refresh'),
         headers: _headers(),
@@ -1396,8 +1397,13 @@ class ApiService {
         _token = token;
         return token;
       }
-      throw _extractError(response);
-    });
+      // ❌ Refresh fail — force logout
+      clearToken();
+      throw 'Session expired — please login again';
+    } catch (e) {
+      clearToken();
+      rethrow;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getUsers() async {
@@ -1503,19 +1509,44 @@ class ApiService {
 
   // ==================== Patients ====================
 
+  // ✅ FIXED: getAllPatients with token refresh retry
   Future<List<Patient>> getAllPatients() async {
     return _safeApiCall(() async {
-      final response = await _client.get(
-        Uri.parse('$_baseUrl/patients'),
-        headers: _headers(),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final raw = data['data'] ?? data['patients'] ?? [];
-        return (raw as List).map((p) => Patient.fromJson(p)).toList();
+      try {
+        final response = await _client.get(
+          Uri.parse('$_baseUrl/patients'),
+          headers: _headers(),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final raw = data['data'] ?? data['patients'] ?? [];
+          return (raw as List).map((p) => Patient.fromJson(p)).toList();
+        }
+        if (response.statusCode == 401) {
+          // ❌ Token expired — try refreshing
+          try {
+            await refreshToken();
+            // Retry with new token
+            final retryResponse = await _client.get(
+              Uri.parse('$_baseUrl/patients'),
+              headers: _headers(),
+            );
+            if (retryResponse.statusCode == 200) {
+              final data = jsonDecode(retryResponse.body);
+              final raw = data['data'] ?? data['patients'] ?? [];
+              return (raw as List).map((p) => Patient.fromJson(p)).toList();
+            }
+          } catch (_) {
+            // Refresh failed — force logout
+            clearToken();
+          }
+          throw 'Session expired — please login again';
+        }
+        throw _extractError(response);
+      } catch (e) {
+        if (e is String && e.contains('Session expired')) rethrow;
+        rethrow;
       }
-      if (response.statusCode == 401) throw 'Session expired — please login again';
-      throw _extractError(response);
     });
   }
 
@@ -1656,7 +1687,7 @@ class ApiService {
   }
 
   // ============================================================
-  // ⭐ FIXED: BACKUP EMAIL METHODS (Multipart file upload) ⭐
+  // ⭐ BACKUP EMAIL METHODS (Multipart file upload) ⭐
   // ============================================================
 
   Future<Map<String, dynamic>> sendBackupEmail({
