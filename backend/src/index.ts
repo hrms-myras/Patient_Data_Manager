@@ -238,7 +238,6 @@
 
 // export default app;
 
-
 import express, { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -280,23 +279,20 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================
-// ✅ CORS - PAKKA FIX (Using cors package) ✅
+// ✅ CORS - PAKKA FIX ✅
 // ============================================================
 
-// CORS options
-const corsOptions = {
-  origin: '*', // Allow all origins (for Vercel)
+// CORS middleware - sabse pehle lagaao!
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-admin-secret', 'Origin', 'X-Requested-With'],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
-};
+}));
 
-// Apply CORS middleware
-app.use(cors(corsOptions));
-
-// Extra manual CORS headers (double protection)
+// Extra manual headers (double protection)
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -310,7 +306,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // ============================================================
-// ✅ ENCRYPTION INITIALIZATION ✅
+// ✅ ENCRYPTION ✅
 // ============================================================
 
 try {
@@ -349,7 +345,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // ============================================================
-// ✅ ADMIN RETRY BACKUP ENDPOINT ✅
+// ✅ ADMIN RETRY BACKUP ✅
 // ============================================================
 
 app.get('/api/admin/retry-backup', async (req: Request, res: Response) => {
@@ -357,7 +353,6 @@ app.get('/api/admin/retry-backup', async (req: Request, res: Response) => {
   if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
     return res.status(404).json({ error: 'Route not found' });
   }
-
   try {
     const retryResult = await retryFailedBackups();
     return res.json({
@@ -381,35 +376,28 @@ app.post('/api/backup/send-email', upload.single('file'), async (req: Request, r
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
-
     const { recipientEmail, customMessage } = req.body;
     const file = req.file;
-
     if (!file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-
     const emailService = await import('./services/emailService');
     const { getEncryption } = await import('./utils/encryption');
-
     const csvString = file.buffer.toString('utf-8');
     const encryption = getEncryption();
     const encryptedBackup = encryption.encrypt(csvString);
     const fileName = file.originalname.replace('.csv', '.enc');
-
     const emailSent = await emailService.sendBackupEmailTo(
       recipientEmail,
       Buffer.from(encryptedBackup, 'utf-8'),
       fileName,
       customMessage || '📁 Patient Data Backup'
     );
-
     if (emailSent) {
       res.status(200).json({ success: true, message: 'Email sent successfully' });
     } else {
       res.status(500).json({ success: false, message: 'Failed to send email' });
     }
-
   } catch (error: any) {
     console.error('❌ Send Email Error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -426,12 +414,9 @@ app.post('/api/backup/test', async (req: Request, res: Response) => {
     if (adminSecret !== process.env.ADMIN_SECRET) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-
     const emailService = await import('./services/emailService');
-    
     console.log('🧪 Test backup triggered...');
     const result = await emailService.sendWeeklyBackupEmail();
-    
     if (result) {
       res.json({ 
         success: true, 
@@ -479,7 +464,6 @@ const server = app.listen(PORT, () => {
   console.log(`📍 Running on http://localhost:${PORT}`);
   console.log(`🔐 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`\n✓ Server is ready for requests\n`);
-
   void retryFailedBackupsOnStartup();
 });
 
@@ -493,10 +477,6 @@ async function retryFailedBackupsOnStartup() {
     console.error('Failed to retry pending backup emails on startup:', error);
   }
 }
-
-// ============================================================
-// ✅ GRACEFUL SHUTDOWN ✅
-// ============================================================
 
 process.on('SIGINT', async () => {
   console.log('\n\n🛑 Shutting down gracefully...');
